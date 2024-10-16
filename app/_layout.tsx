@@ -1,37 +1,65 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect, useState } from "react";
+import "react-native-reanimated";
+import { ThemeProvider, createTheme } from "@rneui/themed";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { UserDetails, UserDetailsDefault } from "./types/user";
+import { UserProvider } from "./contexts/user-context";
 
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const [loginDetails, setLoginDetails] = useState<UserDetails | undefined>();
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+  });
+  const theme = createTheme({
+    lightColors: {
+      primary: "#1e2749",
+    },
+    darkColors: {
+      primary: "#000",
+    },
+    mode: "light",
   });
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && loginDetails) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, loginDetails]);
 
-  if (!loaded) {
+  useEffect(() => {
+    const checkUserDetails = async () => {
+      try {
+        // await AsyncStorage.removeItem("sign-in-details");
+        const userDetailsStr = await AsyncStorage.getItem("sign-in-details");
+        if (!userDetailsStr) {
+          setLoginDetails(UserDetailsDefault);
+          return;
+        }
+        const userDetails = JSON.parse(userDetailsStr);
+        setLoginDetails(userDetails as UserDetails);
+      } catch (err) {}
+    };
+    checkUserDetails();
+  }, []);
+
+  if (!loaded && !loginDetails) {
     return null;
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
+    <ThemeProvider theme={theme}>
+      <UserProvider initialUserDetails={loginDetails}>
+        <Stack>
+          <Stack.Screen name="(home)" options={{ headerShown: false }} />
+          <Stack.Screen name="(login)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+      </UserProvider>
     </ThemeProvider>
   );
 }
